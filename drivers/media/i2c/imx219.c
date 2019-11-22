@@ -240,6 +240,7 @@ static const struct imx219_reg mode_1920_1080_regs[] = {
 };
 
 static const struct imx219_reg mode_1640_1232_regs[] = {
+	{0x0100, 0x00},
 	{0x30eb, 0x0c},
 	{0x30eb, 0x05},
 	{0x300a, 0xff},
