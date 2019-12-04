@@ -93,6 +93,19 @@
 #define IMX219_TEST_PATTERN_GREY_COLOR	3
 #define IMX219_TEST_PATTERN_PN9		4
 
+/* Test pattern colour components */
+#define IMX219_REG_TESTP_RED		0x0602
+#define IMX219_REG_TESTP_GREENR		0x0604
+#define IMX219_REG_TESTP_BLUE		0x0606
+#define IMX219_REG_TESTP_GREENB		0x0608
+#define IMX219_TESTP_COLOUR_MIN		0
+#define IMX219_TESTP_COLOUR_MAX		0x03ff
+#define IMX219_TESTP_COLOUR_STEP	1
+#define IMX219_TESTP_RED_DEFAULT	IMX219_TESTP_COLOUR_MAX
+#define IMX219_TESTP_GREENR_DEFAULT	0
+#define IMX219_TESTP_BLUE_DEFAULT	0
+#define IMX219_TESTP_GREENB_DEFAULT	0
+
 struct imx219_reg {
 	u16 address;
 	u8 val;
@@ -578,6 +591,22 @@ static int imx219_set_ctrl(struct v4l2_ctrl *ctrl)
 				       IMX219_REG_VALUE_16BIT,
 				       imx219->mode->height + ctrl->val);
 		break;
+	case V4L2_CID_TEST_PATTERN_RED:
+		ret = imx219_write_reg(imx219, IMX219_REG_TESTP_RED,
+				       IMX219_REG_VALUE_16BIT, ctrl->val);
+		break;
+	case V4L2_CID_TEST_PATTERN_GREENR:
+		ret = imx219_write_reg(imx219, IMX219_REG_TESTP_GREENR,
+				       IMX219_REG_VALUE_16BIT, ctrl->val);
+		break;
+	case V4L2_CID_TEST_PATTERN_BLUE:
+		ret = imx219_write_reg(imx219, IMX219_REG_TESTP_BLUE,
+				       IMX219_REG_VALUE_16BIT, ctrl->val);
+		break;
+	case V4L2_CID_TEST_PATTERN_GREENB:
+		ret = imx219_write_reg(imx219, IMX219_REG_TESTP_GREENB,
+				       IMX219_REG_VALUE_16BIT, ctrl->val);
+		break;
 	default:
 		dev_info(&client->dev,
 			 "ctrl(id:0x%x,val:0x%x) is not handled\n",
@@ -980,7 +1009,7 @@ static int imx219_init_controls(struct imx219 *imx219)
 	struct v4l2_ctrl_handler *ctrl_hdlr;
 	u32 height = imx219->mode->height;
 	s64 hblank, exposure_max, exposure_def;
-	int ret;
+	int i, ret;
 
 	ctrl_hdlr = &imx219->ctrl_handler;
 	ret = v4l2_ctrl_handler_init(ctrl_hdlr, 6);
@@ -1029,6 +1058,22 @@ static int imx219_init_controls(struct imx219 *imx219)
 				     V4L2_CID_TEST_PATTERN,
 				     ARRAY_SIZE(imx219_test_pattern_menu) - 1,
 				     0, 0, imx219_test_pattern_menu);
+
+	for (i = 0; i < 4; i++) {
+		/*
+		 * The assumption is that
+		 * V4L2_CID_TEST_PATTERN_GREENR == V4L2_CID_TEST_PATTERN_RED + 1
+		 * V4L2_CID_TEST_PATTERN_BLUE   == V4L2_CID_TEST_PATTERN_RED + 2
+		 * V4L2_CID_TEST_PATTERN_GREENB == V4L2_CID_TEST_PATTERN_RED + 3
+		 */
+		v4l2_ctrl_new_std(ctrl_hdlr, &imx219_ctrl_ops,
+				  V4L2_CID_TEST_PATTERN_RED + i,
+				  IMX219_TESTP_COLOUR_MIN,
+				  IMX219_TESTP_COLOUR_MAX,
+				  IMX219_TESTP_COLOUR_STEP,
+				  IMX219_TESTP_COLOUR_MAX);
+		/* The "Solid color" pattern is white by default */
+	}
 
 	imx219->hflip = v4l2_ctrl_new_std(ctrl_hdlr, &imx219_ctrl_ops,
 					  V4L2_CID_HFLIP, 0, 1, 1, 0);
