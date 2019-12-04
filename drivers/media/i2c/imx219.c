@@ -800,9 +800,8 @@ static int imx219_set_stream(struct v4l2_subdev *sd, int enable)
 		 * and then start streaming.
 		 */
 		ret = imx219_start_streaming(imx219);
-		if (ret) {
+		if (ret)
 			goto err_rpm_put;
-		}
 	} else {
 		imx219_stop_streaming(imx219);
 		pm_runtime_put(&client->dev);
