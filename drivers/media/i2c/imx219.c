@@ -1012,7 +1012,7 @@ static int imx219_init_controls(struct imx219 *imx219)
 	int i, ret;
 
 	ctrl_hdlr = &imx219->ctrl_handler;
-	ret = v4l2_ctrl_handler_init(ctrl_hdlr, 6);
+	ret = v4l2_ctrl_handler_init(ctrl_hdlr, 9);
 	if (ret)
 		return ret;
 
@@ -1054,11 +1054,20 @@ static int imx219_init_controls(struct imx219 *imx219)
 			  IMX219_DGTL_GAIN_MIN, IMX219_DGTL_GAIN_MAX,
 			  IMX219_DGTL_GAIN_STEP, IMX219_DGTL_GAIN_DEFAULT);
 
+	imx219->hflip = v4l2_ctrl_new_std(ctrl_hdlr, &imx219_ctrl_ops,
+					  V4L2_CID_HFLIP, 0, 1, 1, 0);
+	if (imx219->hflip)
+		imx219->hflip->flags |= V4L2_CTRL_FLAG_MODIFY_LAYOUT;
+
+	imx219->vflip = v4l2_ctrl_new_std(ctrl_hdlr, &imx219_ctrl_ops,
+					  V4L2_CID_VFLIP, 0, 1, 1, 0);
+	if (imx219->vflip)
+		imx219->vflip->flags |= V4L2_CTRL_FLAG_MODIFY_LAYOUT;
+
 	v4l2_ctrl_new_std_menu_items(ctrl_hdlr, &imx219_ctrl_ops,
 				     V4L2_CID_TEST_PATTERN,
 				     ARRAY_SIZE(imx219_test_pattern_menu) - 1,
 				     0, 0, imx219_test_pattern_menu);
-
 	for (i = 0; i < 4; i++) {
 		/*
 		 * The assumption is that
@@ -1074,13 +1083,6 @@ static int imx219_init_controls(struct imx219 *imx219)
 				  IMX219_TESTP_COLOUR_MAX);
 		/* The "Solid color" pattern is white by default */
 	}
-
-	imx219->hflip = v4l2_ctrl_new_std(ctrl_hdlr, &imx219_ctrl_ops,
-					  V4L2_CID_HFLIP, 0, 1, 1, 0);
-	imx219->hflip->flags |= V4L2_CTRL_FLAG_MODIFY_LAYOUT;
-	imx219->vflip = v4l2_ctrl_new_std(ctrl_hdlr, &imx219_ctrl_ops,
-					  V4L2_CID_VFLIP, 0, 1, 1, 0);
-	imx219->vflip->flags |= V4L2_CTRL_FLAG_MODIFY_LAYOUT;
 
 	if (ctrl_hdlr->error) {
 		ret = ctrl_hdlr->error;
