@@ -41,7 +41,10 @@
 #define IMX219_REG_CHIP_ID		0x0000
 #define IMX219_CHIP_ID			0x0219
 
-/* pixel rate is fixed at 182.4M for all the modes */
+/* External clock frequency is 24.0M */
+#define IMX219_XCLK_FREQ		24000000
+
+/* Pixel rate is fixed at 182.4M for all the modes */
 #define IMX219_PIXEL_RATE		182400000
 
 /* V_TIMING internal */
@@ -112,19 +115,19 @@ struct imx219_reg {
 };
 
 struct imx219_reg_list {
-	u32 num_of_regs;
+	unsigned int num_of_regs;
 	const struct imx219_reg *regs;
 };
 
 /* Mode : resolution and related config&values */
 struct imx219_mode {
 	/* Frame width */
-	u32 width;
+	unsigned int width;
 	/* Frame height */
-	u32 height;
+	unsigned int height;
 
 	/* V-timing */
-	u32 vts_def;
+	unsigned int vts_def;
 
 	/* Default register values */
 	struct imx219_reg_list reg_list;
@@ -191,8 +194,6 @@ static const struct imx219_reg mode_3280x2464_regs[] = {
 	{0x4793, 0x10},
 	{0x4797, 0x0e},
 	{0x479b, 0x0e},
-
-	{0x0172, 0x00},
 	{0x0162, 0x0d},
 	{0x0163, 0x78},
 };
@@ -255,8 +256,6 @@ static const struct imx219_reg mode_1920_1080_regs[] = {
 	{0x4793, 0x10},
 	{0x4797, 0x0e},
 	{0x479b, 0x0e},
-
-	{0x0172, 0x00},
 	{0x0162, 0x0d},
 	{0x0163, 0x78},
 };
@@ -317,8 +316,6 @@ static const struct imx219_reg mode_1640_1232_regs[] = {
 	{0x4793, 0x10},
 	{0x4797, 0x0e},
 	{0x479b, 0x0e},
-
-	{0x0172, 0x00},
 	{0x0162, 0x0d},
 	{0x0163, 0x78},
 };
@@ -504,16 +501,13 @@ static u32 imx219_get_format_code(struct imx219 *imx219)
 	 * Only one bayer order is supported.
 	 * It depends on the flip settings.
 	 */
-	u32 code;
 	static const u32 codes[2][2] = {
 		{ MEDIA_BUS_FMT_SRGGB10_1X10, MEDIA_BUS_FMT_SGRBG10_1X10, },
 		{ MEDIA_BUS_FMT_SGBRG10_1X10, MEDIA_BUS_FMT_SBGGR10_1X10, },
 	};
 
 	lockdep_assert_held(&imx219->mutex);
-	code = codes[imx219->vflip->val][imx219->hflip->val];
-
-	return code;
+	return codes[imx219->vflip->val][imx219->hflip->val];
 }
 
 static int imx219_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
@@ -540,10 +534,10 @@ static int imx219_set_ctrl(struct v4l2_ctrl *ctrl)
 	struct imx219 *imx219 =
 		container_of(ctrl->handler, struct imx219, ctrl_handler);
 	struct i2c_client *client = v4l2_get_subdevdata(&imx219->sd);
-	int ret = 0;
+	int ret;
 
 	if (ctrl->id == V4L2_CID_VBLANK) {
-		s64 exposure_max, exposure_def;
+		int exposure_max, exposure_def;
 
 		/* Update max exposure while meeting expected vblanking */
 		exposure_max = imx219->mode->height + ctrl->val - 4;
@@ -630,7 +624,10 @@ static int imx219_enum_mbus_code(struct v4l2_subdev *sd,
 {
 	struct imx219 *imx219 = to_imx219(sd);
 
-	/* Only one bayer order(GRBG) is supported */
+	/*
+	 * Only one bayer order is supported (though it depends on the flip
+	 * settings)
+	 */
 	if (code->index > 0)
 		return -EINVAL;
 
@@ -715,7 +712,7 @@ static int imx219_set_pad_format(struct v4l2_subdev *sd,
 	struct imx219 *imx219 = to_imx219(sd);
 	const struct imx219_mode *mode;
 	struct v4l2_mbus_framefmt *framefmt;
-	s64 exposure_max, exposure_def, hblank;
+	int exposure_max, exposure_def, hblank;
 
 	mutex_lock(&imx219->mutex);
 
@@ -761,7 +758,6 @@ static int imx219_set_pad_format(struct v4l2_subdev *sd,
 	return 0;
 }
 
-/* Start streaming */
 static int imx219_start_streaming(struct imx219 *imx219)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&imx219->sd);
@@ -786,8 +782,7 @@ static int imx219_start_streaming(struct imx219 *imx219)
 				IMX219_REG_VALUE_08BIT, IMX219_MODE_STREAMING);
 }
 
-/* Stop streaming */
-static int imx219_stop_streaming(struct imx219 *imx219)
+static void imx219_stop_streaming(struct imx219 *imx219)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&imx219->sd);
 	int ret;
@@ -797,12 +792,6 @@ static int imx219_stop_streaming(struct imx219 *imx219)
 			       IMX219_REG_VALUE_08BIT, IMX219_MODE_STANDBY);
 	if (ret)
 		dev_err(&client->dev, "%s failed to set stream\n", __func__);
-
-	/*
-	 * Return success even if it was an error, as there is nothing the
-	 * caller can do about it.
-	 */
-	return 0;
 }
 
 static int imx219_set_stream(struct v4l2_subdev *sd, int enable)
@@ -952,28 +941,21 @@ static int imx219_identify_module(struct imx219 *imx219)
 	int ret;
 	u32 val;
 
-	ret = imx219_power_on(imx219->dev);
-	if (ret)
-		return ret;
-
 	ret = imx219_read_reg(imx219, IMX219_REG_CHIP_ID,
 			      IMX219_REG_VALUE_16BIT, &val);
 	if (ret) {
 		dev_err(&client->dev, "failed to read chip id %x\n",
 			IMX219_CHIP_ID);
-		goto power_off;
+		return ret;
 	}
 
 	if (val != IMX219_CHIP_ID) {
 		dev_err(&client->dev, "chip id mismatch: %x!=%x\n",
 			IMX219_CHIP_ID, val);
-		ret = -EIO;
+		return -EIO;
 	}
 
-power_off:
-	if (ret)
-		imx219_power_off(imx219->dev);
-	return ret;
+	return 0;
 }
 
 static const struct v4l2_subdev_core_ops imx219_core_ops = {
@@ -1007,8 +989,8 @@ static int imx219_init_controls(struct imx219 *imx219)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&imx219->sd);
 	struct v4l2_ctrl_handler *ctrl_hdlr;
-	u32 height = imx219->mode->height;
-	s64 hblank, exposure_max, exposure_def;
+	unsigned int height = imx219->mode->height;
+	int exposure_max, exposure_def, hblank;
 	int i, ret;
 
 	ctrl_hdlr = &imx219->ctrl_handler;
@@ -1122,7 +1104,6 @@ static int imx219_probe(struct i2c_client *client,
 
 	imx219->dev = dev;
 
-	/* Initialize subdev */
 	v4l2_i2c_subdev_init(&imx219->sd, client, &imx219_subdev_ops);
 
 	/* Get CSI2 bus config */
@@ -1148,7 +1129,7 @@ static int imx219_probe(struct i2c_client *client,
 	}
 
 	imx219->xclk_freq = clk_get_rate(imx219->xclk);
-	if (imx219->xclk_freq != 24000000) {
+	if (imx219->xclk_freq != IMX219_XCLK_FREQ) {
 		dev_err(dev, "xclk frequency not supported: %d Hz\n",
 			imx219->xclk_freq);
 		return -EINVAL;
@@ -1158,21 +1139,28 @@ static int imx219_probe(struct i2c_client *client,
 	if (ret)
 		return ret;
 
-	/* request optional power down pin */
+	/* Request optional enable pin */
 	imx219->xclr_gpio = devm_gpiod_get_optional(dev, "xclr",
 						    GPIOD_OUT_HIGH);
 
-	/* Check module identity */
-	ret = imx219_identify_module(imx219);
+	/*
+	 * The sensor must be powered for imx219_identify_module()
+	 * to be able to read the CHIP_ID register
+	 */
+	ret = imx219_power_on(dev);
 	if (ret)
 		return ret;
+
+	ret = imx219_identify_module(imx219);
+	if (ret)
+		goto error_power_off;
 
 	/* Set default mode to max resolution */
 	imx219->mode = &supported_modes[0];
 
 	ret = imx219_init_controls(imx219);
 	if (ret)
-		return ret;
+		goto error_power_off;
 
 	/* Initialize subdev */
 	imx219->sd.internal_ops = &imx219_internal_ops;
@@ -1190,6 +1178,7 @@ static int imx219_probe(struct i2c_client *client,
 	if (ret < 0)
 		goto error_media_entity;
 
+	/* Enable runtime PM and turn off the device */
 	pm_runtime_set_active(dev);
 	pm_runtime_enable(dev);
 	pm_runtime_idle(dev);
@@ -1201,6 +1190,9 @@ error_media_entity:
 
 error_handler_free:
 	imx219_free_controls(imx219);
+
+error_power_off:
+	imx219_power_off(dev);
 
 	return ret;
 }
