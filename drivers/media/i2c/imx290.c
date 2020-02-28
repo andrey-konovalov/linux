@@ -576,7 +576,7 @@ static int imx290_set_stream(struct v4l2_subdev *sd, int enable)
 	printk("Inside imx290_set_stream(), enable=%d\n", enable);
 	if (enable) {
 		ret = pm_runtime_get_sync(imx290->dev);
-		printk("pm_runtime_get_sync() returned: %d\n", ret);
+		printk("imx290_set_stream: pm_runtime_get_sync() returned: %d\n", ret);
 		if (ret < 0) {
 			pm_runtime_put_noidle(imx290->dev);
 			goto unlock_and_return;
@@ -633,7 +633,7 @@ static int imx290_power_on(struct device *dev)
 	gpiod_set_value_cansleep(imx290->rst_gpio, 0);
 	usleep_range(30000, 31000);
 
-	printk("reset gpio pin raw value is set to %d\n",
+	printk("imx290_power_on: reset gpio pin raw value is set to %d\n",
 	       gpiod_get_raw_value(imx290->rst_gpio));
 	printk("Leaving imx290_power_on(): OK\n");
 
@@ -649,7 +649,7 @@ static int imx290_power_off(struct device *dev)
 	clk_disable_unprepare(imx290->xclk);
 	gpiod_set_value_cansleep(imx290->rst_gpio, 1);
 
-	printk("reset gpio pin raw value is set to %d\n",
+	printk("imx290_power_off: reset gpio pin raw value is set to %d\n",
 	       gpiod_get_raw_value(imx290->rst_gpio));
 
 	regulator_bulk_disable(IMX290_NUM_SUPPLIES, imx290->supplies);
@@ -780,9 +780,9 @@ static int imx290_probe(struct i2c_client *client)
 	}
 
 	if (imx290->rst_gpio == NULL)
-		printk("reset gpio pin is not available\n");
+		printk("imx290_probe: reset gpio pin is not available\n");
 	else
-		printk("reset gpio pin raw value is set to %d\n",
+		printk("imx290_probe: reset gpio pin raw value is set to %d\n",
 		       gpiod_get_raw_value(imx290->rst_gpio));
 
 	mutex_init(&imx290->lock);
