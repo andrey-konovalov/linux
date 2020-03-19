@@ -48,10 +48,21 @@ one until ``EINVAL`` is returned. If applicable, drivers shall return
 formats in preference order, where preferred formats are returned before
 (that is, with lower ``index`` value) less-preferred formats.
 
-.. note::
+If the driver doesn't advertise the ``V4L2_CAP_IO_MC``
+:ref:`device-capabilities <capability>`, applications shall initialize the
+``mbus_code`` field to zero. Drivers shall enumerate all image formats supported
+by the device. The enumerated formats may depend on the active input or output
+of the device.
 
-   After switching input or output the list of enumerated image
-   formats may be different.
+If the driver advertises the ``V4L2_CAP_IO_MC`` :ref:`device-capabilities
+<capability>`, applications may initialize the ``mbus_code`` to a valid
+:ref:`v4l2_mbus_pixelcode <media bus format code>`. If the ``mbus_code` field
+is not zero, drivers shall restrict enumeration to only the image formats that
+can produce (for video output devices) or be produced from (for video capture
+devices) that media bus code. Regardless of the value of the ``mbus_code``
+field, the enumerated image formats shall not depend on the active
+configuration of the video device or device pipeline. Enumeration shall
+otherwise operate as previously described.
 
 
 .. tabularcolumns:: |p{4.4cm}|p{4.4cm}|p{8.7cm}|
