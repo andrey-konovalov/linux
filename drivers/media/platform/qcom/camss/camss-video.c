@@ -588,7 +588,7 @@ static int video_enum_fmt(struct file *file, void *fh, struct v4l2_fmtdesc *f)
 		return -EINVAL;
 
 	if (f->mbus_code) {
-		/* There are no entries with the same mbus_code in formats[] */
+		/* Each entry in formats[] table has unique mbus_code */
 		if(f->index > 0)
 			return -EINVAL;
 
