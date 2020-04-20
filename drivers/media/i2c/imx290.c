@@ -32,8 +32,6 @@
 
 #define IMX290_NLANES 4
 
-#define IMX290_BPP 10
-
 enum {
 	IMX290_LINK_FREQ_445_5_MBPS,
 	IMX290_LINK_FREQ_297_MBPS,
@@ -70,6 +68,7 @@ struct imx290 {
 	struct device *dev;
 	struct clk *xclk;
 	struct regmap *regmap;
+	u8 bpp;
 
 	struct v4l2_subdev sd;
 	struct media_pad pad;
@@ -88,10 +87,12 @@ struct imx290 {
 
 struct imx290_pixfmt {
 	u32 code;
+	u8 bpp;
 };
 
 static const struct imx290_pixfmt imx290_formats[] = {
-	{ MEDIA_BUS_FMT_SRGGB10_1X10 },
+	{ MEDIA_BUS_FMT_SRGGB10_1X10, 10 },
+	{ MEDIA_BUS_FMT_SRGGB12_1X12, 12 },
 };
 
 static const struct regmap_config imx290_regmap_config = {
@@ -210,6 +211,18 @@ static const struct imx290_regval imx290_10bit_settings[] = {
 	{ 0x300b, 0x00},
 };
 
+static const struct imx290_regval imx290_12bit_settings[] = {
+	{ 0x3005, 0x01 },
+	{ 0x3046, 0x01 },
+	{ 0x3129, 0x00 },
+	{ 0x317c, 0x00 },
+	{ 0x31ec, 0x0e },
+	{ 0x3441, 0x0c },
+	{ 0x3442, 0x0c },
+	{ 0x300a, 0xf0 },
+	{ 0x300b, 0x00 },
+};
+
 static const struct imx290_regval imx290_1080p_settings[] = {
 	/* mode settings */
 	{ 0x3007, 0x00 },
@@ -293,6 +306,11 @@ const struct imx290_regval_array imx290_10bit_data = {
 	.regvals = imx290_10bit_settings,
 };
 
+const struct imx290_regval_array imx290_12bit_data = {
+	.size = ARRAY_SIZE(imx290_12bit_settings),
+	.regvals = imx290_12bit_settings,
+};
+
 /* Mode configs */
 static const struct imx290_mode imx290_modes[] = {
 	{
@@ -319,8 +337,8 @@ static u64 imx290_calc_pixel_rate(struct imx290 *imx290)
 {
 	s64 lnk_frq = imx290_link_freqs[imx290->current_mode->link_freq_index];
 
-	/* pixel rate = link_freq * 2 * nr_of_lanes / bits_per_sample */
-	return (lnk_frq * 2 * IMX290_NLANES / IMX290_BPP);
+	/* pixel rate = link_freq * 2 * nr_of_lanes / bits_per_pixel */
+	return (lnk_frq * 2 * IMX290_NLANES / imx290->bpp);
 }
 
 static inline struct imx290 *to_imx290(struct v4l2_subdev *_sd)
@@ -526,6 +544,7 @@ static int imx290_set_fmt(struct v4l2_subdev *sd,
 		format = v4l2_subdev_get_try_format(sd, cfg, fmt->pad);
 	} else {
 		format = &imx290->current_fmt;
+		imx290->bpp = imx290_formats[i].bpp;
 		__v4l2_ctrl_s_ctrl(imx290->link_freq, mode->link_freq_index);
 		__v4l2_ctrl_s_ctrl_int64(imx290->pixel_rate,
 					 imx290_calc_pixel_rate(imx290));
@@ -557,10 +576,7 @@ static int imx290_entity_init_cfg(struct v4l2_subdev *subdev,
 static const struct imx290_regval_array * imx290_get_xbit_data(
 							struct imx290 *imx290)
 {
-	if (imx290->current_fmt.code != MEDIA_BUS_FMT_SRGGB10_1X10)
-		dev_err(imx290->dev, "Unsupported media code\n");
-
-	return &imx290_10bit_data;
+	return imx290->bpp == 10 ? &imx290_10bit_data : &imx290_12bit_data;
 }
 
 /* Start streaming */
@@ -829,8 +845,9 @@ static int imx290_probe(struct i2c_client *client)
 
 	mutex_init(&imx290->lock);
 
-	/* use 1080p@60Hz as the default */
+	/* use 1080p@60Hz and 10 bits/pixel as the default */
 	imx290->current_mode = &imx290_modes[0];
+	imx290->bpp = 10;
 
 	v4l2_ctrl_handler_init(&imx290->ctrls, 3);
 
