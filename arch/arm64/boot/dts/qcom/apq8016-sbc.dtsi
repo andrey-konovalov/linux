@@ -524,35 +524,6 @@
 		cci@1b0c000 {
 			status = "okay";
 			i2c-bus@0 {
-				camera_rear@76 {
-					compatible = "ovti,ov5645";
-					reg = <0x76>;
-
-					enable-gpios = <&msmgpio 34 GPIO_ACTIVE_HIGH>;
-					reset-gpios = <&msmgpio 35 GPIO_ACTIVE_LOW>;
-					pinctrl-names = "default";
-					pinctrl-0 = <&camera_rear_default>;
-
-					clocks = <&gcc GCC_CAMSS_MCLK0_CLK>;
-					clock-names = "xclk";
-					assigned-clocks = <&gcc GCC_CAMSS_MCLK0_CLK>;
-					assigned-clock-rates = <23880000>;
-
-					vdddo-supply = <&camera_vdddo_1v8>;
-					vdda-supply = <&camera_vdda_2v8>;
-					vddd-supply = <&camera_vddd_1v5>;
-
-					status = "disabled";
-
-					port {
-						ov5645_ep: endpoint {
-							clock-lanes = <1>;
-							data-lanes = <0 2>;
-							remote-endpoint = <&csiphy0_ep>;
-						};
-					};
-				};
-
 				camera_rear@74 {
 					compatible = "ovti,ov5645";
 					reg = <0x74>;
@@ -581,6 +552,35 @@
 						};
 					};
 				};
+
+				imx290: imx290@1a {
+					compatible = "sony,imx290";
+					reg = <0x1a>;
+
+					reset-gpios = <&msmgpio 35 GPIO_ACTIVE_LOW>;
+					pinctrl-names = "default";
+					pinctrl-0 = <&camera_rear_default>;
+
+					clocks = <&gcc GCC_CAMSS_MCLK0_CLK>;
+					clock-names = "xclk";
+					clock-frequency = <37125000>;
+
+					vdddo-supply = <&camera_vdddo_1v8>;
+					vdda-supply = <&camera_vdda_2v8>;
+					vddd-supply = <&camera_vddd_1v5>;
+
+					status = "ok";
+
+					port {
+						imx290_ep: endpoint {
+							clock-lanes = <1>;
+							data-lanes = <0 2 3 4>;
+							link-frequencies = /bits/ 64 <445500000>;
+							remote-endpoint = <&csiphy0_ep>;
+							status = "ok";
+						};
+					};
+				};
 			};
 		};
 
@@ -591,9 +591,9 @@
 					reg = <0>;
 					csiphy0_ep: endpoint {
 						clock-lanes = <1>;
-						data-lanes = <0 2>;
-						remote-endpoint = <&ov5645_ep>;
-						status = "disabled";
+						data-lanes = <0 2 3 4>;
+						remote-endpoint = <&imx290_ep>;
+						status = "ok";
 					};
 				};
 
