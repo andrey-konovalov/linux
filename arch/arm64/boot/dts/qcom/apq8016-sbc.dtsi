@@ -593,8 +593,8 @@
 			reg = <0>;
 			csiphy0_ep: endpoint {
 				clock-lanes = <1>;
-				data-lanes = <0 2>;
-				remote-endpoint = <&ov5640_ep>;
+				data-lanes = <0 2 3 4>;
+				remote-endpoint = <&imx290_ep>;
 				status = "okay";
 			};
 		};
@@ -606,30 +606,29 @@
 };
 
 &cci_i2c0 {
-	camera_rear@3b {
-		compatible = "ovti,ov5640";
-		reg = <0x3b>;
+	imx290@1a {
+		compatible = "sony,imx290";
+		reg = <0x1a>;
 
-		enable-gpios = <&msmgpio 34 GPIO_ACTIVE_HIGH>;
 		reset-gpios = <&msmgpio 35 GPIO_ACTIVE_LOW>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&camera_rear_default>;
 
 		clocks = <&gcc GCC_CAMSS_MCLK0_CLK>;
 		clock-names = "xclk";
-		clock-frequency = <23880000>;
+		clock-frequency = <37125000>;
 
 		vdddo-supply = <&camera_vdddo_1v8>;
 		vdda-supply = <&camera_vdda_2v8>;
 		vddd-supply = <&camera_vddd_1v5>;
 
-		/* No camera mezzanine by default */
-		status = "disabled";
+		status = "okay";
 
 		port {
-			ov5640_ep: endpoint {
-				clock-lanes = <1>;
-				data-lanes = <0 2>;
+			imx290_ep: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <222750000 148500000>;
 				remote-endpoint = <&csiphy0_ep>;
 			};
 		};
