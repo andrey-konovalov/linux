@@ -50,6 +50,30 @@
 		regulator-always-on;
 	};
 
+	/* RPi v2 camera has on-board regulators with common enable */
+	imx219_vana: imx219_vana {
+		compatible = "regulator-fixed";
+		regulator-name = "imx219_vana";
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+		gpio = <&msmgpio 34 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+	imx219_vdig: imx219_vdig {
+		compatible = "regulator-fixed";
+		regulator-name = "imx219_vdig";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+	imx219_vddl: imx219_vddl {
+		compatible = "regulator-fixed";
+		regulator-name = "imx219_vddl";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		regulator-always-on;
+	};
+
 	reserved-memory {
 		ramoops@bff00000 {
 			compatible = "ramoops";
@@ -250,9 +274,35 @@
 			csiphy0_ep: endpoint {
 				clock-lanes = <1>;
 				data-lanes = <0 2>;
-				remote-endpoint = <&ov5640_ep>;
+				remote-endpoint = <&imx219_j5_ep>;
 				status = "okay";
 			};
+		};
+
+		port@1 {
+			reg = <1>;
+			csiphy1_ep: endpoint {
+				clock-lanes = <1>;
+				data-lanes = <0 2>;
+				remote-endpoint = <&ov5647_j9_ep>;
+				status = "okay";
+			};
+		};
+	};
+};
+
+/ {
+	clocks {
+		imx219_clk: camera-clk0 {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <24000000>;
+		};
+
+		ov5647_clk: camera-clk1 {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <25000000>;
 		};
 	};
 };
@@ -262,31 +312,58 @@
 };
 
 &cci_i2c0 {
-	camera_rear@3b {
-		compatible = "ovti,ov5640";
-		reg = <0x3b>;
+	imx219@10 {
+		status = "ok";
 
-		enable-gpios = <&msmgpio 34 GPIO_ACTIVE_HIGH>;
+		compatible = "sony,imx219";
+		reg = <0x10>;
+
+		VANA-supply = <&imx219_vana>;
+		VDIG-supply = <&imx219_vdig>;
+		VDDL-supply = <&imx219_vddl>;
+
 		reset-gpios = <&msmgpio 35 GPIO_ACTIVE_LOW>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&camera_rear_default>;
 
-		clocks = <&gcc GCC_CAMSS_MCLK0_CLK>;
+		clocks = <&imx219_clk>;
 		clock-names = "xclk";
-		clock-frequency = <23880000>;
-
-		vdddo-supply = <&camera_vdddo_1v8>;
-		vdda-supply = <&camera_vdda_2v8>;
-		vddd-supply = <&camera_vddd_1v5>;
-
-		/* No camera mezzanine by default */
-		status = "disabled";
 
 		port {
-			ov5640_ep: endpoint {
+			imx219_j5_ep: endpoint {
+				remote-endpoint = <&csiphy0_ep>;
 				clock-lanes = <1>;
 				data-lanes = <0 2>;
-				remote-endpoint = <&csiphy0_ep>;
+				clock-noncontinuous;
+				link-frequencies =
+					/bits/ 64 <456000000>;
+			};
+		};
+	};
+};
+
+&blsp_i2c2 {
+	ov5647_j9@36 {
+		status = "ok";
+
+		compatible = "ovti,ov5647";
+		reg = <0x36>;
+
+		pwdn-gpios = <&msmgpio 33 GPIO_ACTIVE_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&camera_front_default>;
+
+		clocks = <&ov5647_clk>;
+		clock-names = "xclk";
+
+		port {
+			ov5647_j9_ep: endpoint {
+				remote-endpoint = <&csiphy1_ep>;
+				clock-lanes = <1>;
+				data-lanes = <0 2>;
+				clock-noncontinuous;
+				link-frequencies =
+					/bits/ 64 <297000000>;
 			};
 		};
 	};
