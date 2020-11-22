@@ -1138,6 +1138,8 @@ static int imx219_power_on(struct device *dev)
 	usleep_range(IMX219_XCLR_MIN_DELAY_US,
 		     IMX219_XCLR_MIN_DELAY_US + IMX219_XCLR_DELAY_RANGE_US);
 
+	dev_info(&client->dev, "imx219_power_on: OK\n");
+
 	return 0;
 
 reg_off:
@@ -1155,6 +1157,8 @@ static int imx219_power_off(struct device *dev)
 	gpiod_set_value_cansleep(imx219->reset_gpio, 0);
 	regulator_bulk_disable(IMX219_NUM_SUPPLIES, imx219->supplies);
 	clk_disable_unprepare(imx219->xclk);
+
+	dev_info(&client->dev, "imx219_power_off: OK\n");
 
 	return 0;
 }
@@ -1226,6 +1230,8 @@ static int imx219_identify_module(struct imx219 *imx219)
 			IMX219_CHIP_ID, val);
 		return -EIO;
 	}
+
+	dev_info(&client->dev, "imx219 sensor identified\n");
 
 	return 0;
 }
@@ -1493,8 +1499,10 @@ static int imx219_probe(struct i2c_client *client)
 	usleep_range(100, 110);
 
 	ret = imx219_init_controls(imx219);
-	if (ret)
+	if (ret) {
+		dev_err(dev, "failed to init controls: %d\n", ret);
 		goto error_power_off;
+	}
 
 	/* Initialize subdev */
 	imx219->sd.internal_ops = &imx219_internal_ops;
@@ -1518,6 +1526,8 @@ static int imx219_probe(struct i2c_client *client)
 		dev_err(dev, "failed to register sensor sub-device: %d\n", ret);
 		goto error_media_entity;
 	}
+
+	dev_info(&client->dev, "sensor sub-device registered OK\n");
 
 	/* Enable runtime PM and turn off the device */
 	pm_runtime_set_active(dev);

@@ -1420,6 +1420,8 @@ static int ov5647_probe(struct i2c_client *client)
 	u32 xclk_freq;
 	struct v4l2_ctrl *ctrl;
 
+	dev_info(dev, "Inside ov5647_probe()\n");
+
 	sensor = devm_kzalloc(dev, sizeof(*sensor), GFP_KERNEL);
 	if (!sensor)
 		return -ENOMEM;
@@ -1517,12 +1519,16 @@ static int ov5647_probe(struct i2c_client *client)
 	if (ret < 0)
 		goto mutex_remove;
 
+	dev_info(dev, "media_entity_pads_init(): OK\n");
+
 	if (sensor->pwdn) {
 		gpiod_set_value_cansleep(sensor->pwdn, 0);
 		msleep(PWDN_ACTIVE_DELAY_MS);
 	}
 
 	ret = ov5647_detect(sd);
+
+	dev_info(dev, "ov5647_detect() returned: %d\n", ret);
 
 	gpiod_set_value_cansleep(sensor->pwdn, 1);
 

@@ -743,6 +743,9 @@ static int camss_subdev_notifier_bound(struct v4l2_async_notifier *async,
 	u8 id = csd->interface.csiphy_id;
 	struct csiphy_device *csiphy = &camss->csiphy[id];
 
+	dev_info(camss->dev, "Inside camss_subdev_notifier_bound() - sd: %s\n",
+			subdev->name);
+
 	csiphy->cfg.csi2 = &csd->interface.csi2;
 	subdev->host_priv = csiphy;
 
@@ -764,6 +767,10 @@ static int camss_subdev_notifier_complete(struct v4l2_async_notifier *async)
 			struct media_entity *input = &csiphy->subdev.entity;
 			unsigned int i;
 
+			dev_info(camss->dev,
+				 "notifier_complete(): \"%s\": %d pads\n",
+				 sd->name, sensor->num_pads);
+
 			for (i = 0; i < sensor->num_pads; i++) {
 				if (sensor->pads[i].flags & MEDIA_PAD_FL_SOURCE)
 					break;
@@ -783,14 +790,25 @@ static int camss_subdev_notifier_complete(struct v4l2_async_notifier *async)
 					sensor->name, input->name, ret);
 				return ret;
 			}
+
+			dev_info(camss->dev,
+				 "linked %s->%s entities OK\n",
+				 sensor->name, input->name);
 		}
 	}
 
 	ret = v4l2_device_register_subdev_nodes(&camss->v4l2_dev);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(camss->dev,
+			"v4l2_device_register_subdev_nodes() failed: %d\n",
+			ret);
 		return ret;
+	}
 
-	return media_device_register(&camss->media_dev);
+	ret = media_device_register(&camss->media_dev);
+	dev_info(camss->dev,
+		 "*notifier*: media_device_register() returned: %d\n", ret);
+	return ret;
 }
 
 static const struct v4l2_async_notifier_operations camss_subdev_notifier_ops = {
@@ -863,9 +881,11 @@ static int camss_probe(struct platform_device *pdev)
 
 	num_subdevs = camss_of_parse_ports(camss);
 	if (num_subdevs < 0) {
+		dev_err(dev, "Failed camss_of_parse_ports(): ret = %d\n", ret);
 		ret = num_subdevs;
 		goto err_cleanup;
 	}
+	dev_info(dev, "camss_of_parse_ports() OK, num_subdevs = %d\n", num_subdevs);
 
 	ret = camss_init_subdevices(camss);
 	if (ret < 0)
@@ -891,6 +911,7 @@ static int camss_probe(struct platform_device *pdev)
 	ret = camss_register_entities(camss);
 	if (ret < 0)
 		goto err_register_entities;
+	dev_info(dev, "camss_register_entities(): OK\n");
 
 	if (num_subdevs) {
 		camss->notifier.ops = &camss_subdev_notifier_ops;
@@ -917,6 +938,7 @@ static int camss_probe(struct platform_device *pdev)
 				ret);
 			goto err_register_subdevs;
 		}
+		dev_info(dev, "media_device_register() *in probe*: OK\n");
 	}
 
 	if (camss->version == CAMSS_8x96) {
