@@ -126,23 +126,23 @@ static u8 csiphy_get_bpp(const struct csiphy_format *formats,
 static int csiphy_set_clock_rates(struct csiphy_device *csiphy)
 {
 	struct device *dev = csiphy->camss->dev;
-	u32 pixel_clock;
+	s64 link_freq;
 	int i, j;
 	int ret;
 
-	ret = camss_get_pixel_clock(&csiphy->subdev.entity, &pixel_clock);
-	if (ret)
-		pixel_clock = 0;
+	u8 bpp = csiphy_get_bpp(csiphy->formats, csiphy->nformats,
+				csiphy->fmt[MSM_CSIPHY_PAD_SINK].code);
+	u8 num_lanes = csiphy->cfg.csi2->lane_cfg.num_data;
+	link_freq = camss_get_link_rate(&csiphy->subdev.entity, bpp,
+					2 * num_lanes);
+	if (link_freq < 0)
+		link_freq  = 0;
 
 	for (i = 0; i < csiphy->nclocks; i++) {
 		struct camss_clock *clock = &csiphy->clock[i];
 
 		if (csiphy->rate_set[i]) {
-			u8 bpp = csiphy_get_bpp(csiphy->formats,
-					csiphy->nformats,
-					csiphy->fmt[MSM_CSIPHY_PAD_SINK].code);
-			u8 num_lanes = csiphy->cfg.csi2->lane_cfg.num_data;
-			u64 min_rate = pixel_clock * bpp / (2 * num_lanes * 4);
+			u64 min_rate = link_freq / 4;
 			long round_rate;
 
 			camss_add_clock_margin(&min_rate);
@@ -262,22 +262,18 @@ static u8 csiphy_get_lane_mask(struct csiphy_lanes_cfg *lane_cfg)
 static int csiphy_stream_on(struct csiphy_device *csiphy)
 {
 	struct csiphy_config *cfg = &csiphy->cfg;
-	u32 pixel_clock;
+	s64 link_freq;
 	u8 lane_mask = csiphy_get_lane_mask(&cfg->csi2->lane_cfg);
 	u8 bpp = csiphy_get_bpp(csiphy->formats, csiphy->nformats,
 				csiphy->fmt[MSM_CSIPHY_PAD_SINK].code);
+	u8 num_lanes = csiphy->cfg.csi2->lane_cfg.num_data;
 	u8 val;
-	int ret;
 
-	ret = camss_get_pixel_clock(&csiphy->subdev.entity, &pixel_clock);
-	if (ret) {
+	link_freq = camss_get_link_rate(&csiphy->subdev.entity, bpp,
+					2 * num_lanes);
+	if (link_freq < 0) {
 		dev_err(csiphy->camss->dev,
-			"Cannot get CSI2 transmitter's pixel clock\n");
-		return -EINVAL;
-	}
-	if (!pixel_clock) {
-		dev_err(csiphy->camss->dev,
-			"Got pixel clock == 0, cannot continue\n");
+			"Cannot get CSI2 transmitter's link frequency\n");
 		return -EINVAL;
 	}
 
@@ -296,7 +292,7 @@ static int csiphy_stream_on(struct csiphy_device *csiphy)
 		wmb();
 	}
 
-	csiphy->ops->lanes_enable(csiphy, cfg, pixel_clock, bpp, lane_mask);
+	csiphy->ops->lanes_enable(csiphy, cfg, link_freq, lane_mask);
 
 	return 0;
 }
