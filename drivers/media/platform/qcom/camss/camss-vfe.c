@@ -451,6 +451,9 @@ static int vfe_set_clock_rates(struct vfe_device *vfe)
 					    &pixel_clock[i]);
 		if (ret)
 			pixel_clock[i] = 0;
+
+		printk("%s got pixel_clock[%d] (%s) = %u\n", __func__,
+		       i, vfe->line[i].subdev.entity.name, pixel_clock[i]);
 	}
 
 	for (i = 0; i < vfe->nclocks; i++) {
@@ -481,7 +484,13 @@ static int vfe_set_clock_rates(struct vfe_device *vfe)
 					min_rate = tmp;
 			}
 
+			printk("%s min_rate = %llu\n", __func__, min_rate);
+
 			camss_add_clock_margin(&min_rate);
+
+			for (j = 0; j < clock->nfreqs; j++)
+				printk("%s clock %s: clock->freq[%d] = %u\n",
+				       __func__, clock->name, j, clock->freq[j]);
 
 			for (j = 0; j < clock->nfreqs; j++)
 				if (min_rate < clock->freq[j])
@@ -504,6 +513,10 @@ static int vfe_set_clock_rates(struct vfe_device *vfe)
 					rate);
 				return -EINVAL;
 			}
+
+			printk("%s setting clock %s to %u rounded to %ld\n",
+			       __func__, clock->name, clock->freq[j], rate);
+
 
 			ret = clk_set_rate(clock->clk, rate);
 			if (ret < 0) {

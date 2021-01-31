@@ -765,6 +765,9 @@ s64 camss_get_link_rate(struct media_entity *entity, unsigned int bpp,
 
 	subdev = media_entity_to_v4l2_subdev(sensor);
 
+	printk("%s entity: %s, sensor: %s\n",
+	       __func__, entity->name, sensor->name);
+
 	return v4l2_get_link_rate(subdev->ctrl_handler, bpp, lanes);
 }
 
@@ -782,10 +785,16 @@ int camss_get_pixel_clock(struct media_entity *entity, u32 *pixel_clock)
 	struct v4l2_ctrl *ctrl;
 
 	sensor = camss_find_sensor(entity);
-	if (!sensor)
+	if (!sensor) {
+		printk("%s: no sensor found for entity %s", __func__,
+		       entity->name);
 		return -ENODEV;
+	}
 
 	subdev = media_entity_to_v4l2_subdev(sensor);
+
+	printk("%s: entity: %s, sensor: %s\n",
+	       __func__, entity->name, sensor->name);
 
 	ctrl = v4l2_ctrl_find(subdev->ctrl_handler, V4L2_CID_PIXEL_RATE);
 

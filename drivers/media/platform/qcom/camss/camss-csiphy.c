@@ -135,6 +135,10 @@ static int csiphy_set_clock_rates(struct csiphy_device *csiphy)
 	u8 num_lanes = csiphy->cfg.csi2->lane_cfg.num_data;
 	link_freq = camss_get_link_rate(&csiphy->subdev.entity, bpp,
 					2 * num_lanes);
+
+	printk("%s <entity=%s> link_freq=%lld, bpp=%u, num_lanes=%u\n",
+	       __func__, csiphy->subdev.entity.name, link_freq, bpp, num_lanes);
+
 	if (link_freq < 0)
 		link_freq  = 0;
 
@@ -146,6 +150,10 @@ static int csiphy_set_clock_rates(struct csiphy_device *csiphy)
 			long round_rate;
 
 			camss_add_clock_margin(&min_rate);
+
+			for (j = 0; j < clock->nfreqs; j++)
+				printk("%s clock->freq[%d] = %u\n",
+				       __func__, j, clock->freq[j]);
 
 			for (j = 0; j < clock->nfreqs; j++)
 				if (min_rate < clock->freq[j])
@@ -170,6 +178,9 @@ static int csiphy_set_clock_rates(struct csiphy_device *csiphy)
 			}
 
 			csiphy->timer_clk_rate = round_rate;
+
+			printk("%s setting clock %s to %u rounded to %ld\n",
+			       __func__, clock->name, clock->freq[j], round_rate);
 
 			ret = clk_set_rate(clock->clk, csiphy->timer_clk_rate);
 			if (ret < 0) {
@@ -276,6 +287,10 @@ static int csiphy_stream_on(struct csiphy_device *csiphy)
 			"Cannot get CSI2 transmitter's link frequency\n");
 		return -EINVAL;
 	}
+
+	printk("%s <entity=%s> link_freq=%lld, bpp=%u, num_lanes=%u, mask=%u\n",
+	       __func__, csiphy->subdev.entity.name, link_freq, bpp, num_lanes,
+	       lane_mask);
 
 	if (csiphy->base_clk_mux) {
 		val = readl_relaxed(csiphy->base_clk_mux);

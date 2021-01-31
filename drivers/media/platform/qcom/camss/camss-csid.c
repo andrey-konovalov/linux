@@ -81,6 +81,11 @@ static int csid_set_clock_rates(struct csid_device *csid)
 	u8 num_lanes = csid->phy.lane_cnt;
 	link_freq = camss_get_link_rate(&csid->subdev.entity, f->bpp,
 					2 * num_lanes);
+
+	printk("%s <entity=%s> link_freq=%lld, bpp=%u, num_lanes=%u\n",
+	       __func__, csid->subdev.entity.name, link_freq, f->bpp,
+	       num_lanes);
+
 	if (link_freq < 0)
 		link_freq = 0;
 
@@ -95,6 +100,10 @@ static int csid_set_clock_rates(struct csid_device *csid)
 			long rate;
 
 			camss_add_clock_margin(&min_rate);
+
+			for (j = 0; j < clock->nfreqs; j++)
+				printk("%s clock->freq[%d] = %u\n",
+				       __func__, j, clock->freq[j]);
 
 			for (j = 0; j < clock->nfreqs; j++)
 				if (min_rate < clock->freq[j])
@@ -117,6 +126,9 @@ static int csid_set_clock_rates(struct csid_device *csid)
 					rate);
 				return -EINVAL;
 			}
+
+			printk("%s setting clock %s to %u rounded to %ld\n",
+			       __func__, clock->name, clock->freq[j], rate);
 
 			ret = clk_set_rate(clock->clk, rate);
 			if (ret < 0) {
