@@ -455,29 +455,25 @@ static int rcsi2_calc_mbps(struct rcar_csi2 *priv, unsigned int bpp,
 			   unsigned int lanes)
 {
 	struct v4l2_subdev *source;
-	struct v4l2_ctrl *ctrl;
-	u64 mbps;
+	s64 mbps;
 
 	if (!priv->remote)
 		return -ENODEV;
 
 	source = priv->remote;
 
-	/* Read the pixel rate control from remote. */
-	ctrl = v4l2_ctrl_find(source->ctrl_handler, V4L2_CID_PIXEL_RATE);
-	if (!ctrl) {
-		dev_err(priv->dev, "no pixel rate control in subdev %s\n",
+	/* Read the link frequency from the remote subdev. */
+	mbps = v4l2_get_link_freq(source->ctrl_handler, bpp, 2 * lanes);
+	if (mbps < 0) {
+		dev_err(priv->dev, "failed to get link rate from subdev %s\n",
 			source->name);
-		return -EINVAL;
+		return mbps;
 	}
-
 	/*
 	 * Calculate the phypll in mbps.
-	 * link_freq = (pixel_rate * bits_per_sample) / (2 * nr_of_lanes)
 	 * bps = link_freq * 2
 	 */
-	mbps = v4l2_ctrl_g_ctrl_int64(ctrl) * bpp;
-	do_div(mbps, lanes * 1000000);
+	do_div(mbps, 1000000 / 2);
 
 	return mbps;
 }
