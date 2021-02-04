@@ -343,41 +343,6 @@ static int mipid02_detect(struct mipid02_dev *bridge)
 	return mipid02_read_reg(bridge, MIPID02_CLK_LANE_WR_REG1, &reg);
 }
 
-static u32 mipid02_get_link_freq_from_cid_link_freq(struct mipid02_dev *bridge,
-						    struct v4l2_subdev *subdev)
-{
-	struct v4l2_querymenu qm = {.id = V4L2_CID_LINK_FREQ, };
-	struct v4l2_ctrl *ctrl;
-	int ret;
-
-	ctrl = v4l2_ctrl_find(subdev->ctrl_handler, V4L2_CID_LINK_FREQ);
-	if (!ctrl)
-		return 0;
-	qm.index = v4l2_ctrl_g_ctrl(ctrl);
-
-	ret = v4l2_querymenu(subdev->ctrl_handler, &qm);
-	if (ret)
-		return 0;
-
-	return qm.value;
-}
-
-static u32 mipid02_get_link_freq_from_cid_pixel_rate(struct mipid02_dev *bridge,
-						     struct v4l2_subdev *subdev)
-{
-	struct v4l2_fwnode_endpoint *ep = &bridge->rx;
-	struct v4l2_ctrl *ctrl;
-	u32 pixel_clock;
-	u32 bpp = bpp_from_code(bridge->fmt.code);
-
-	ctrl = v4l2_ctrl_find(subdev->ctrl_handler, V4L2_CID_PIXEL_RATE);
-	if (!ctrl)
-		return 0;
-	pixel_clock = v4l2_ctrl_g_ctrl_int64(ctrl);
-
-	return pixel_clock * bpp / (2 * ep->bus.mipi_csi2.num_data_lanes);
-}
-
 /*
  * We need to know link frequency to setup clk_lane_reg1 timings. Link frequency
  * will be computed using connected device V4L2_CID_PIXEL_RATE, bit per pixel
@@ -386,21 +351,18 @@ static u32 mipid02_get_link_freq_from_cid_pixel_rate(struct mipid02_dev *bridge,
 static int mipid02_configure_from_rx_speed(struct mipid02_dev *bridge)
 {
 	struct i2c_client *client = bridge->i2c_client;
-	struct v4l2_subdev *subdev = bridge->s_subdev;
-	u32 link_freq;
+	s64 freq;
 
-	link_freq = mipid02_get_link_freq_from_cid_link_freq(bridge, subdev);
-	if (!link_freq) {
-		link_freq = mipid02_get_link_freq_from_cid_pixel_rate(bridge,
-								      subdev);
-		if (!link_freq) {
-			dev_err(&client->dev, "Failed to get link frequency");
-			return -EINVAL;
-		}
+	freq = v4l2_get_link_freq(bridge->s_subdev->ctrl_handler,
+				  bpp_from_code(bridge->fmt.code),
+				  2 * bridge->rx.bus.mipi_csi2.num_data_lanes);
+	if (freq < 0) {
+		dev_err(&client->dev, "Failed to get link frequency");
+		return -EINVAL;
 	}
 
-	dev_dbg(&client->dev, "detect link_freq = %d Hz", link_freq);
-	bridge->r.clk_lane_reg1 |= (2000000000 / link_freq) << 2;
+	dev_dbg(&client->dev, "detect link_freq = %lld Hz", freq);
+	bridge->r.clk_lane_reg1 |= (2000000000 / (u32)freq) << 2;
 
 	return 0;
 }
