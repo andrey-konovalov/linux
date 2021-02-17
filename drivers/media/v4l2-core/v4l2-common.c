@@ -461,6 +461,8 @@ s64 v4l2_get_link_freq(struct v4l2_ctrl_handler *handler, unsigned int mul,
 
 		freq = qm.value;
 	} else {
+		pr_warn("%s: V4L2_CID_LINK_FREQ not implemented\n", __func__);
+
 		if (!mul || !div)
 			return -ENOENT;
 
