@@ -872,7 +872,7 @@ iss_video_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 	pipe = entity->pipe
 	     ? to_iss_pipeline(entity) : &video->pipe;
 	pipe->external = NULL;
-	pipe->external_rate = 0;
+	pipe->external_lfreq = 0;
 	pipe->external_bpp = 0;
 
 	ret = media_entity_enum_init(&pipe->ent_enum, entity->graph_obj.mdev);

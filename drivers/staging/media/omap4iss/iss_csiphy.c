@@ -119,6 +119,7 @@ int omap4iss_csiphy_config(struct iss_device *iss,
 	struct iss_pipeline *pipe = to_iss_pipeline(&csi2_subdev->entity);
 	struct iss_v4l2_subdevs_group *subdevs = pipe->external->host_priv;
 	struct iss_csiphy_dphy_cfg csi2phy;
+	s64 link_freq;
 	int csi2_ddrclk_khz;
 	struct iss_csiphy_lanes_cfg *lanes;
 	unsigned int used_lanes = 0;
@@ -193,9 +194,21 @@ int omap4iss_csiphy_config(struct iss_device *iss,
 	if (lanes->clk.pos == 0 || used_lanes & (1 << lanes->clk.pos))
 		return -EINVAL;
 
-	csi2_ddrclk_khz = pipe->external_rate / 1000
-		/ (2 * csi2->phy->used_data_lanes)
-		* pipe->external_bpp;
+	if (!pipe->external_lfreq) {
+		link_freq = v4l2_get_link_freq(pipe->external->ctrl_handler,
+					       pipe->external_bpp,
+					       2 * csi2->phy->used_data_lanes);
+		if (link_freq < 0) {
+			dev_warn(iss->dev,
+				 "failed to read the link frequency fromn subdev %s\n",
+				 pipe->external->name);
+			return -EINVAL;
+		}
+
+		pipe->external_lfreq = link_freq;
+	}
+
+	csi2_ddrclk_khz = div_s64(pipe->external_lfreq, 1000);
 
 	/*
 	 * THS_TERM: Programmed value = ceil(12.5 ns/DDRClk period) - 1.

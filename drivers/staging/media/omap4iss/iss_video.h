@@ -86,7 +86,7 @@ struct iss_pipeline {
 	bool error;
 	struct v4l2_fract max_timeperframe;
 	struct v4l2_subdev *external;
-	unsigned int external_rate;
+	s64 external_lfreq;
 	int external_bpp;
 };
 
