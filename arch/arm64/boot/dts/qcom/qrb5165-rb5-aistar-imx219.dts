@@ -1,0 +1,177 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Copyright (c) 2023, Linaro Ltd.
+ */
+
+/dts-v1/;
+
+#include "qrb5165-rb5.dts"
+
+/ {
+	/*
+	 * RPi v2 camera has on-board regulators with common enable.
+	 * We use CSI[01]_PWDN (LS connector pins 32 and 34) to control
+	 * this input.
+	 */
+	imx219_vana: imx219_vana {
+		compatible = "regulator-fixed";
+		regulator-name = "imx219_vana";
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+		gpio = <&tlmm 109 GPIO_ACTIVE_HIGH>; /* LS conn CSI1_PWDN */
+		enable-active-high;
+	};
+	imx219_vdig: imx219_vdig {
+		compatible = "regulator-fixed";
+		regulator-name = "imx219_vdig";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+	imx219_vdll: imx219_vdll {
+		compatible = "regulator-fixed";
+		regulator-name = "imx219_vdll";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		regulator-always-on;
+	};
+
+	clocks {
+		imx219_clk: camera-clk0 {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <24000000>;
+			status = "okay";
+		};
+	};
+};
+
+&camcc {
+	status = "okay";
+};
+
+&camss {
+	vdda-phy-supply = <&vreg_l5a_0p88>;
+	vdda-pll-supply = <&vreg_l9a_1p2>;
+	status = "okay";
+
+	ports {
+		/* The port index denotes CSIPHY id i.e. csiphy0 */
+#if 0
+		port@0 {
+			csiphy0_ep: endpoint {
+				clock-lanes = <7>;
+				data-lanes = <0 1>;
+				remote-endpoint = <&imx219_ep1>;
+			};
+		};
+#endif
+		port@3 {
+			reg = <3>;
+			csiphy3_ep: endpoint {
+				clock-lanes = <7>;
+				data-lanes = <0 1>;
+				remote-endpoint = <&imx219_ep2>;
+				status = "okay";
+			};
+		};
+	};
+};
+
+#if 0
+&cci0 {
+	status = "okay";
+	assigned-clocks = <&camcc CAM_CC_CCI_0_CLK>,
+			  <&camcc CAM_CC_CCI_0_CLK_SRC>;
+	assigned-clock-rates = <37500000>,
+			       <37500000>;
+};
+
+&cci0_i2c0 {
+	clock-frequency = <400000>;
+
+	camera@10 {
+		compatible = "sony,imx219";
+		reg = <0x10>;
+
+		reset-gpios = <&tlmm 93 GPIO_ACTIVE_HIGH>; /* LS1/CAM0_RST_N */
+		pinctrl-names = "default";
+//		pinctrl-names = "default", "suspend";
+		pinctrl-0 = <&cam_sensor_active_rear>;
+//		pinctrl-1 = <&cam_sensor_suspend_rear>;
+
+		clocks = <&clk_24mhz>;
+
+		VANA-supply = <&cam_dummy_reg>;	/* 2.8v */
+		VDIG-supply = <&cam_dummy_reg>;	/* 1.8v */
+		VDDL-supply = <&cam_dummy_reg>;	/* 1.2v */
+
+		port {
+			imx219_ep1: endpoint {
+				remote-endpoint = <&csiphy0_ep>;
+				data-lanes = <1 2>;
+				clock-noncontinuous;
+				link-frequencies = /bits/ 64 <456000000>;
+			};
+		};
+	};
+};
+#endif
+
+&tlmm {
+	cam_sensor_active_rear_aux: cam_sensor_active_rear_aux {
+		/* RESET REARAUX */
+		mux {
+			pins = "gpio92";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio92";
+			bias-disable; /* No PULL */
+			drive-strength = <2>; /* 2 MA */
+		};
+	};
+	cam_sensor_suspend_rear_aux: cam_sensor_suspend_rear_aux {
+		/* RESET REARAUX */
+		mux {
+			pins = "gpio92";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio92";
+			bias-pull-down; /* PULL DOWN */
+			drive-strength = <2>; /* 2 MA */
+			output-low;
+		};
+	};
+};
+
+&i2c4 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	camera@10 {
+		compatible = "sony,imx219";
+		reg = <0x10>;
+
+		pinctrl-names = "default", "suspend";
+		pinctrl-0 = <&cam_sensor_active_rear_aux>;
+		pinctrl-1 = <&cam_sensor_suspend_rear_aux>;
+
+		clocks = <&imx219_clk>;
+		clock-names = "xclk";
+
+		VANA-supply = <&imx219_vana>; /* 2.8v */
+		VDIG-supply = <&imx219_vdig>; /* 1.8v */
+		VDDL-supply = <&imx219_vdll>; /* 1.2v */
+
+		port {
+			imx219_ep2: endpoint {
+				remote-endpoint = <&csiphy3_ep>;
+				data-lanes = <1 2>;
+				clock-noncontinuous;
+				link-frequencies = /bits/ 64 <456000000>;
+			};
+		};
+	};
+};
